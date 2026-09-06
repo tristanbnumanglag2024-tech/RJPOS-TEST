@@ -1,0 +1,10 @@
+{
+  "description": "Streamline retail operations with a secure POS authentication flow, enabling cashiers to log in quickly and access their assigned store's functionalities.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
