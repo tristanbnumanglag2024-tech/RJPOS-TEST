@@ -9,6 +9,7 @@
     Product,
   } from "@/types/pos";
   import { generateTxnId } from "@/data/mockData";
+  import { clearPosToken, getPosToken, posAuthHeaders } from "@/types/posToken";
   import POSHeader from "@/components/pos/POSHeader";
   import ProductGrid from "@/components/pos/ProductGrid";
   import CartPanel from "@/components/pos/CartPanel";
@@ -1005,10 +1006,7 @@
             )}`,
             {
               method: "GET",
-              credentials: "include",
-              headers: {
-                Accept: "application/json",
-              },
+              headers: posAuthHeaders(),
               cache: "no-store",
             }
           );
@@ -1416,13 +1414,7 @@
         `${API_BASE}/pos/complete-sale.php`,
         {
           method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type":
-              "application/json",
-            Accept:
-              "application/json",
-          },
+          headers: posAuthHeaders(true),
           body: JSON.stringify(
             payload
           ),
@@ -1471,12 +1463,7 @@
               )
             )}`,
             {
-              credentials:
-                "include",
-              headers: {
-                Accept:
-                  "application/json",
-              },
+              headers: posAuthHeaders(),
               cache: "no-store",
             }
           );

@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import type { Store, User } from "@/types/pos";
+import { savePosToken } from "@/types/posToken";
 
 interface Props {
   store: Store;
-  onSuccess: (u: User) => void;
+  onSuccess: (u: User, token: string) => void;
   onBack: () => void;
 }
 
@@ -23,6 +24,7 @@ type LoginResponse = {
   success: boolean;
   message?: string;
   user?: ApiLoginUser;
+  token?: string;
 };
 
 function getStoreId(store: Store): number {
@@ -204,7 +206,6 @@ export default function LoginScreen({
         `${API_BASE}/auth/login.php`,
         {
           method: "POST",
-          credentials: "include",
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
@@ -231,6 +232,13 @@ export default function LoginScreen({
       }
 
       const loggedInUser = loginData.user;
+      const token = String(loginData.token ?? "").trim();
+
+      if (!token) {
+        throw new Error("The POS server did not return an authentication token.");
+      }
+
+      savePosToken(token);
 
       /*
        * ------------------------------------------------------------
@@ -268,7 +276,7 @@ export default function LoginScreen({
        * No mock password, mock users, or artificial delay.
        * The real PHP authentication is the source of truth.
        */
-      onSuccess(posUser);
+      onSuccess(posUser, token);
     } catch (err) {
       console.error("POS login error:", err);
 

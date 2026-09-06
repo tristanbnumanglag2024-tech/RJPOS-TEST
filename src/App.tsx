@@ -11,6 +11,7 @@ import type {
   POSSession,
 } from "@/types/pos";
 import { generateTxnId } from "@/data/mockData";
+import { clearPosToken, getPosToken, posAuthHeaders, savePosToken } from "@/types/posToken";
 import StoreSelectScreen from "@/screens/StoreSelectScreen";
 import LoginScreen from "@/screens/LoginScreen";
 import LockScreen from "@/screens/LockScreen";
@@ -101,14 +102,22 @@ export default function App() {
       try {
         setCheckingSession(true);
 
+        const token = getPosToken();
+
+        if (!token) {
+          if (mounted) {
+            setSession(null);
+            setStore(null);
+            setScreen("store-select");
+          }
+          return;
+        }
+
         const response = await fetch(
           `${API_BASE}/auth/pos-session.php`,
           {
             method: "GET",
-            credentials: "include",
-            headers: {
-              Accept: "application/json",
-            },
+            headers: posAuthHeaders(),
             cache: "no-store",
           }
         );
@@ -123,6 +132,8 @@ export default function App() {
           !isValidSessionUser(data.user) ||
           !isValidSessionStore(data.store)
         ) {
+          clearPosToken();
+
           if (mounted) {
             setSession(null);
             setStore(null);
@@ -270,10 +281,12 @@ export default function App() {
     setScreen("login");
   };
 
-  const handleLoginSuccess = (user: User) => {
+  const handleLoginSuccess = (user: User, token: string) => {
     if (!store) {
       return;
     }
+
+    savePosToken(token);
 
     /*
      * The backend has already authenticated the user and verified
@@ -313,22 +326,25 @@ export default function App() {
     clearTimer();
 
     try {
-      await fetch(
-        `${API_BASE}/auth/pos-logout.php`,
-        {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            Accept: "application/json",
-          },
-        }
-      );
+      const token = getPosToken();
+
+      if (token) {
+        await fetch(
+          `${API_BASE}/auth/pos-logout.php`,
+          {
+            method: "POST",
+            headers: posAuthHeaders(),
+          }
+        );
+      }
     } catch (err) {
       console.error(
         "POS logout request error:",
         err
       );
     } finally {
+      clearPosToken();
+
       /*
        * Always clear local React state even if the server request
        * fails, so the POS screen cannot remain open.
