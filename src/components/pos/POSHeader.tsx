@@ -64,6 +64,22 @@ export default function POSHeader({
       ? session.heldOrders.length
       : 0;
 
+  /*
+   * Clear persisted POS/auth state before returning to the login screen.
+   * This prevents a refresh from restoring the previous POS session.
+   */
+  const handleLogout = () => {
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch (storageError) {
+      console.warn("Unable to clear browser session storage:", storageError);
+    }
+
+    setMenuOpen(false);
+    onLogout();
+  };
+
   return (
     <header className="h-14 bg-[#1a1d2e] flex items-center justify-between px-3 sm:px-4 flex-shrink-0 select-none relative z-30">
       {/* Left: Store Branding */}
@@ -359,10 +375,7 @@ export default function POSHeader({
 
                 <button
                   type="button"
-                  onClick={() => {
-                    onLogout();
-                    setMenuOpen(false);
-                  }}
+                  onClick={handleLogout}
                   className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-400 hover:bg-slate-700 transition text-left"
                 >
                   <svg
@@ -389,7 +402,7 @@ export default function POSHeader({
         {/* Logout — desktop */}
         <button
           type="button"
-          onClick={onLogout}
+          onClick={handleLogout}
           title="Logout"
           className="hidden md:flex w-8 h-8 rounded-lg border border-slate-600 items-center justify-center text-slate-400 hover:text-red-400 hover:border-red-400/50 transition"
         >

@@ -240,303 +240,319 @@ export default function LoginScreen({
   const terminal = getTerminal(store);
 
   return (
-    <div className="min-h-full bg-slate-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-[420px]">
+    <div className="min-h-full relative overflow-hidden bg-slate-950 flex items-center justify-center px-4 py-6 sm:px-6">
+      {/* Background decoration */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-indigo-600/20 blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 h-80 w-80 rounded-full bg-violet-600/15 blur-3xl" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(99,102,241,0.10),transparent_42%)]" />
+      </div>
+
+      <div className="relative z-10 w-full max-w-[430px]">
         {/* Back */}
         <button
           type="button"
           onClick={onBack}
           disabled={loading}
-          className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-700 mb-5 sm:mb-6 transition touch-manipulation disabled:opacity-50"
+          className="mb-5 flex items-center gap-2 text-sm font-medium text-slate-400 transition hover:text-white disabled:opacity-50"
         >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          >
-            <path d="m15 18-6-6 6-6" />
-          </svg>
-          Back to store selection
-        </button>
-
-        {/* Brand */}
-        <div className="text-center mb-6 sm:mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-600 shadow-lg shadow-indigo-200 mb-3 sm:mb-4">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-700 bg-slate-900/70">
             <svg
-              width="26"
-              height="26"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="white"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M12 2L4 6v6c0 5.25 3.5 10.15 8 11.35C16.5 22.15 20 17.25 20 12V6L12 2Z" />
-              <path d="m9 12 2 2 4-4" />
-            </svg>
-          </div>
-
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-            Rhea POS
-          </h1>
-
-          <div className="mt-2 inline-flex items-center gap-1.5 text-xs text-slate-500 bg-white border border-slate-200 rounded-full px-3 py-1 max-w-full overflow-hidden">
-            <svg
-              width="11"
-              height="11"
+              width="15"
+              height="15"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              strokeWidth="1.5"
+              strokeWidth="2"
               strokeLinecap="round"
-              className="text-indigo-500 flex-shrink-0"
+              strokeLinejoin="round"
             >
-              <path d="M3 9l1.5-6h15L21 9M3 9h18M3 9v11a1 1 0 0 0 1-1 1h16a1 1 0 0 0 1-1V9" />
-              <rect x="9" y="13" width="6" height="7" rx="1" />
+              <path d="m15 18-6-6 6-6" />
             </svg>
+          </span>
+          Back to store selection
+        </button>
 
-            <span className="font-medium truncate">
-              {storeName} · {branchName}
-            </span>
+        {/* Main login card */}
+        <div className="overflow-hidden rounded-3xl border border-white/10 bg-white shadow-2xl shadow-black/30">
+          {/* Brand header */}
+          <div className="relative bg-[#1a1d2e] px-6 pb-7 pt-8 text-center sm:px-8">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-indigo-400/70 to-transparent" />
 
-            <span className="text-slate-300 flex-shrink-0">
-              ·
-            </span>
-
-            <span className="font-mono text-slate-400 flex-shrink-0">
-              {terminal}
-            </span>
-          </div>
-        </div>
-
-        {/* Card */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
-          <div className="mb-5 sm:mb-6">
-            <h2 className="text-lg font-semibold text-slate-900">
-              Cashier Sign In
-            </h2>
-
-            <p className="text-sm text-slate-400 mt-0.5">
-              Enter your credentials to access this terminal.
-            </p>
-          </div>
-
-          <form
-            onSubmit={handleSubmit}
-            className="space-y-4"
-          >
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-500 mb-1.5 uppercase tracking-widest">
-                Email Address
-              </label>
-
-              <input
-                type="email"
-                autoComplete="username"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  setError("");
-                }}
-                disabled={loading}
-                placeholder="cashier@rheapos.com"
-                className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition disabled:opacity-50"
+            <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-white shadow-xl shadow-black/20">
+              <img
+                src="/logo2.png"
+                alt="Rhea POS"
+                className="h-full w-full object-contain p-2"
               />
             </div>
 
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-500 mb-1.5 uppercase tracking-widest">
-                Password
-              </label>
+            <h1 className="text-2xl font-bold tracking-tight text-white">
+              Rhea POS
+            </h1>
 
-              <div className="relative">
-                <input
-                  type={
-                    showPw
-                      ? "text"
-                      : "password"
-                  }
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    setError("");
-                  }}
-                  disabled={loading}
-                  placeholder="••••••••"
-                  className="w-full h-11 px-3.5 pr-11 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition disabled:opacity-50"
-                />
+            <p className="mt-1 text-sm text-slate-400">
+              Point of Sale System
+            </p>
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    setShowPw((value) => !value)
-                  }
-                  disabled={loading}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition p-1 touch-manipulation disabled:opacity-50"
-                  tabIndex={-1}
-                  aria-label={
-                    showPw
-                      ? "Hide password"
-                      : "Show password"
-                  }
-                >
-                  {showPw ? (
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                    >
-                      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                      <circle
-                        cx="12"
-                        cy="12"
-                        r="3"
-                      />
-                    </svg>
-                  ) : (
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                    >
-                      <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
-                      <line
-                        x1="2"
-                        y1="2"
-                        x2="22"
-                        y2="22"
-                      />
-                    </svg>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {error && (
-              <div className="flex items-start gap-2.5 bg-red-50 border border-red-100 text-red-700 text-sm rounded-xl px-4 py-3 leading-snug">
+            {/* Store information */}
+            <div className="mx-auto mt-5 flex max-w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-left">
+              <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-indigo-500/15 text-indigo-300">
                 <svg
                   width="15"
                   height="15"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="1.5"
+                  strokeWidth="1.6"
                   strokeLinecap="round"
-                  className="mt-0.5 flex-shrink-0 text-red-500"
+                  strokeLinejoin="round"
                 >
-                  <circle
-                    cx="12"
-                    cy="12"
-                    r="10"
-                  />
-                  <line
-                    x1="12"
-                    y1="8"
-                    x2="12"
-                    y2="12"
-                  />
-                  <circle
-                    cx="12"
-                    cy="16"
-                    r="1"
-                    fill="currentColor"
-                    stroke="none"
-                  />
+                  <path d="M3 9l1.5-6h15L21 9" />
+                  <path d="M3 9h18" />
+                  <path d="M3 9v11a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V9" />
+                  <rect x="9" y="13" width="6" height="8" rx="1" />
                 </svg>
-
-                <span>{error}</span>
               </div>
-            )}
 
-            <button
-              type="submit"
-              disabled={
-                loading ||
-                !email.trim() ||
-                !password
-              }
-              className="w-full h-12 rounded-xl bg-indigo-600 text-white text-sm font-semibold tracking-wide hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 mt-2 shadow-sm shadow-indigo-200 touch-manipulation"
-            >
-              {loading ? (
-                <>
-                  <svg
-                    className="animate-spin"
-                    width="15"
-                    height="15"
-                    viewBox="0 0 24 24"
-                    fill="none"
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-semibold text-white">
+                  {storeName}
+                </p>
+                <p className="truncate text-[10px] text-slate-400">
+                  {branchName} · {terminal}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Form */}
+          <div className="px-6 py-7 sm:px-8 sm:py-8">
+            <div className="mb-6">
+              <h2 className="text-xl font-bold tracking-tight text-slate-900">
+                Welcome back
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Sign in to continue to your POS terminal.
+              </p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Email / username */}
+              <div>
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Email or Username
+                </label>
+
+                <div className="relative">
+                  <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                    <svg
+                      width="17"
+                      height="17"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="12" cy="8" r="4" />
+                      <path d="M4 20c0-4 3.58-7 8-7s8 3 8 7" />
+                    </svg>
+                  </div>
+
+                  <input
+                    type="text"
+                    autoComplete="username"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setError("");
+                    }}
+                    disabled={loading}
+                    placeholder="Enter email or username"
+                    className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 disabled:opacity-50"
+                  />
+                </div>
+              </div>
+
+              {/* Password */}
+              <div>
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Password
+                </label>
+
+                <div className="relative">
+                  <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                    <svg
+                      width="17"
+                      height="17"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect x="5" y="11" width="14" height="10" rx="2" />
+                      <path d="M8 11V7a4 4 0 1 1 8 0v4" />
+                    </svg>
+                  </div>
+
+                  <input
+                    type={showPw ? "text" : "password"}
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      setError("");
+                    }}
+                    disabled={loading}
+                    placeholder="Enter your password"
+                    className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-12 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 disabled:opacity-50"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setShowPw((value) => !value)}
+                    disabled={loading}
+                    tabIndex={-1}
+                    aria-label={showPw ? "Hide password" : "Show password"}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
                   >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="white"
-                      strokeWidth="3"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="white"
-                      d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4Z"
-                    />
-                  </svg>
-                  Signing in…
-                </>
-              ) : (
-                <>
+                    {showPw ? (
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    ) : (
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+                        <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+                        <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+                        <line x1="2" y1="2" x2="22" y2="22" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Error */}
+              {error && (
+                <div
+                  role="alert"
+                  className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-3.5 py-3 text-sm leading-snug text-red-700"
+                >
                   <svg
-                    width="15"
-                    height="15"
+                    width="17"
+                    height="17"
                     viewBox="0 0 24 24"
                     fill="none"
-                    stroke="white"
-                    strokeWidth="1.5"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
                     strokeLinecap="round"
+                    className="mt-0.5 flex-shrink-0 text-red-500"
                   >
-                    <rect
-                      x="5"
-                      y="11"
-                      width="14"
-                      height="10"
-                      rx="2"
-                    />
-                    <path d="M8 11V7a4 4 0 1 1 8 0v4" />
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <circle cx="12" cy="16" r="1" fill="currentColor" stroke="none" />
                   </svg>
-                  Sign In to POS
-                </>
+                  <span>{error}</span>
+                </div>
               )}
-            </button>
-          </form>
+
+              {/* Submit */}
+              <button
+                type="submit"
+                disabled={loading || !email.trim() || !password}
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 transition hover:bg-indigo-700 hover:shadow-indigo-600/30 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+              >
+                {loading ? (
+                  <>
+                    <svg
+                      className="animate-spin"
+                      width="17"
+                      height="17"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4Z"
+                      />
+                    </svg>
+                    Signing in…
+                  </>
+                ) : (
+                  <>
+                    Sign In to POS
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M5 12h14" />
+                      <path d="m13 6 6 6-6 6" />
+                    </svg>
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div className="mt-6 flex items-center justify-center gap-2 text-[11px] text-slate-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              Secure POS terminal
+            </div>
+          </div>
         </div>
 
-        <div className="mt-4 text-center">
+        {/* Footer */}
+        <div className="mt-5 text-center">
           <button
             type="button"
             onClick={onBack}
             disabled={loading}
-            className="text-xs text-slate-400 hover:text-indigo-600 transition touch-manipulation disabled:opacity-50"
+            className="text-xs font-medium text-slate-500 transition hover:text-white disabled:opacity-50"
           >
             Switch Store
           </button>
-        </div>
 
-        <p className="mt-5 text-center text-xs text-slate-300">
-          Secured connection · Rhea POS v2.4 · {terminal}
-        </p>
+          <p className="mt-3 text-[10px] text-slate-600">
+            Rhea POS v2.4 · {terminal}
+          </p>
+        </div>
       </div>
     </div>
   );
