@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Store, User } from "@/types/pos";
 
 interface Props {
@@ -122,6 +122,53 @@ export default function LoginScreen({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Mobile keyboard support: when the on-screen keyboard opens, keep the
+  // focused field visible instead of letting the keyboard cover it. This is
+  // especially useful inside Android/iOS in-app browsers such as Instagram.
+  useEffect(() => {
+    const viewport = window.visualViewport;
+
+    const keepFocusedFieldVisible = () => {
+      const active = document.activeElement;
+
+      if (
+        active instanceof HTMLInputElement ||
+        active instanceof HTMLTextAreaElement
+      ) {
+        window.setTimeout(() => {
+          active.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+            inline: "nearest",
+          });
+        }, 80);
+      }
+    };
+
+    viewport?.addEventListener("resize", keepFocusedFieldVisible);
+    viewport?.addEventListener("scroll", keepFocusedFieldVisible);
+    window.addEventListener("resize", keepFocusedFieldVisible);
+
+    return () => {
+      viewport?.removeEventListener("resize", keepFocusedFieldVisible);
+      viewport?.removeEventListener("scroll", keepFocusedFieldVisible);
+      window.removeEventListener("resize", keepFocusedFieldVisible);
+    };
+  }, []);
+
+  const handleInputFocus = (
+    event: React.FocusEvent<HTMLInputElement>
+  ) => {
+    // Let the keyboard finish opening before calculating the visible area.
+    window.setTimeout(() => {
+      event.currentTarget.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+        inline: "nearest",
+      });
+    }, 250);
+  };
+
   const handleSubmit = async (
     e: React.FormEvent<HTMLFormElement>
   ) => {
@@ -240,7 +287,7 @@ export default function LoginScreen({
   const terminal = getTerminal(store);
 
   return (
-    <div className="min-h-full relative overflow-hidden bg-slate-950 flex items-center justify-center px-4 py-6 sm:px-6">
+    <div className="relative min-h-[100dvh] w-full overflow-x-hidden overflow-y-auto bg-slate-950 px-4 py-4 sm:px-6 sm:py-6 flex items-start justify-center sm:items-center">
       {/* Background decoration */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-indigo-600/20 blur-3xl" />
@@ -327,7 +374,7 @@ export default function LoginScreen({
           </div>
 
           {/* Form */}
-          <div className="px-6 py-7 sm:px-8 sm:py-8">
+          <div className="px-6 py-7 pb-16 sm:px-8 sm:py-8">
             <div className="mb-6">
               <h2 className="text-xl font-bold tracking-tight text-slate-900">
                 Welcome back
@@ -370,6 +417,7 @@ export default function LoginScreen({
                       setError("");
                     }}
                     disabled={loading}
+                    onFocus={handleInputFocus}
                     placeholder="Enter email or username"
                     className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 disabled:opacity-50"
                   />
@@ -408,6 +456,7 @@ export default function LoginScreen({
                       setError("");
                     }}
                     disabled={loading}
+                    onFocus={handleInputFocus}
                     placeholder="Enter your password"
                     className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-12 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 disabled:opacity-50"
                   />
