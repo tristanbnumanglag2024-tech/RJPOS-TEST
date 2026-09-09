@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 interface ModalProps {
   title: string;
@@ -8,6 +8,24 @@ interface ModalProps {
 }
 
 export default function Modal({ title, onClose, children, width = "max-w-md" }: ModalProps) {
+  const [viewportHeight, setViewportHeight] = useState<number | null>(null);
+
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    const updateViewportHeight = () => {
+      setViewportHeight(viewport?.height ?? window.innerHeight);
+    };
+
+    updateViewportHeight();
+    viewport?.addEventListener("resize", updateViewportHeight);
+    window.addEventListener("resize", updateViewportHeight);
+
+    return () => {
+      viewport?.removeEventListener("resize", updateViewportHeight);
+      window.removeEventListener("resize", updateViewportHeight);
+    };
+  }, []);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", handler);
@@ -20,7 +38,10 @@ export default function Modal({ title, onClose, children, width = "max-w-md" }: 
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center overflow-hidden p-0 sm:p-4"
+      style={{ paddingBottom: viewportHeight ? Math.max(0, window.innerHeight - viewportHeight) : undefined }}
+    >
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
@@ -33,7 +54,7 @@ export default function Modal({ title, onClose, children, width = "max-w-md" }: 
           relative w-full ${width} bg-white flex flex-col overflow-hidden
           rounded-t-2xl sm:rounded-2xl
           shadow-2xl shadow-slate-900/20
-          max-h-[92dvh] sm:max-h-[85vh]
+          max-h-[92dvh] sm:max-h-[85vh] min-h-0
           animate-[slideUp_0.22s_ease-out]
         `}
       >
@@ -55,7 +76,12 @@ export default function Modal({ title, onClose, children, width = "max-w-md" }: 
           </button>
         </div>
 
-        <div className="overflow-y-auto flex-1">{children}</div>
+        <div
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+          style={{ maxHeight: viewportHeight ? `${Math.max(240, viewportHeight - 70)}px` : undefined }}
+        >
+          {children}
+        </div>
       </div>
 
       <style>{`

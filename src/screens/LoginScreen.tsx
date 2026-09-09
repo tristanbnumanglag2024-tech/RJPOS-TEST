@@ -1,16 +1,13 @@
 import { useEffect, useState } from "react";
-import type { Store, User } from "@/types/pos";
-import { savePosToken } from "@/types/posToken";
+import type { Store } from "@/types/pos";
 
 interface Props {
-  store: Store;
-  onSuccess: (u: User, token: string) => void;
-  onBack: () => void;
+  onSuccess: (user: ApiLoginUser, stores: Store[], selectionToken: string) => void;
 }
 
 const API_BASE = "https://sakuracareapi.site/rhea-pos-api";
 
-type ApiLoginUser = {
+export type ApiLoginUser = {
   id: number | string;
   username?: string | null;
   email?: string | null;
@@ -24,77 +21,10 @@ type LoginResponse = {
   success: boolean;
   message?: string;
   user?: ApiLoginUser;
-  token?: string;
+  stores?: Store[];
+  selection_token?: string;
+  selection_expires_in?: number;
 };
-
-function getStoreId(store: Store): number {
-  return Number((store as Store & { id: unknown }).id);
-}
-
-function getStoreName(store: Store): string {
-  const value = (store as Store & { name?: unknown }).name;
-  return String(value ?? "").trim() || "Store";
-}
-
-function getBranchName(store: Store): string {
-  const value = (store as Store & { branch?: unknown }).branch;
-  return String(value ?? "").trim() || "Branch";
-}
-
-function getTerminal(store: Store): string {
-  const value = (store as Store & { terminal?: unknown }).terminal;
-  return String(value ?? "").trim() || `Store #${getStoreId(store)}`;
-}
-
-function buildUserForPos(
-  loginUser: ApiLoginUser,
-  storeId: number
-): User {
-  const username = String(loginUser.username ?? "");
-
-  const email = String(loginUser.email ?? "");
-
-  const fullName = String(
-    loginUser.full_name ??
-      loginUser.username ??
-      "Cashier"
-  );
-
-  const roleValue = String(
-    loginUser.role ?? ""
-  ).toLowerCase();
-
-  const role = (
-    roleValue === "manager"
-      ? "manager"
-      : roleValue === "admin"
-      ? "admin"
-      : "cashier"
-  ) as User["role"];
-
-  const status = String(
-    loginUser.status ?? "active"
-  ).toLowerCase();
-
-  // Do NOT spread the API objects into User.
-  // Their nullable fields (especially phone) do not match the POS User type.
-  return {
-    id: String(loginUser.id),
-    username,
-    name: fullName,
-    full_name: fullName,
-    email,
-    phone:
-      loginUser.phone != null
-        ? String(loginUser.phone)
-        : undefined,
-    role,
-    store_id: String(storeId),
-    pin_hash: "",
-    active: status === "active",
-    pos_access: roleValue === "cashier",
-  };
-}
 
 async function readJsonResponse<T>(response: Response): Promise<T> {
   const text = await response.text();
@@ -113,11 +43,7 @@ async function readJsonResponse<T>(response: Response): Promise<T> {
   }
 }
 
-export default function LoginScreen({
-  store,
-  onSuccess,
-  onBack,
-}: Props) {
+export default function LoginScreen({ onSuccess }: Props) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -171,9 +97,7 @@ export default function LoginScreen({
     }, 250);
   };
 
-  const handleSubmit = async (
-    e: React.FormEvent<HTMLFormElement>
-  ) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     const loginValue = email.trim();
@@ -183,103 +107,46 @@ export default function LoginScreen({
       return;
     }
 
-    const selectedStoreId = getStoreId(store);
-
-    if (!Number.isInteger(selectedStoreId) || selectedStoreId <= 0) {
-      setError("The selected store is invalid. Please go back and select a valid store.");
-      return;
-    }
-
     setLoading(true);
     setError("");
 
     try {
-      /*
-       * ------------------------------------------------------------
-       * 1. AUTHENTICATE AGAINST THE REAL USERS TABLE
-       * ------------------------------------------------------------
-       *
-       * This uses the same backend login endpoint already used by
-       * the Admin Login screen.
-       */
-      const loginResponse = await fetch(
-        `${API_BASE}/auth/login.php`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify({
-            login: loginValue,
-            password,
-            store_id: selectedStoreId,
-          }),
-        }
-      );
+      const loginResponse = await fetch(`${API_BASE}/auth/pos-login.php`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          login: loginValue,
+          password,
+        }),
+      });
 
-      const loginData =
-        await readJsonResponse<LoginResponse>(
-          loginResponse
-        );
+      const loginData = await readJsonResponse<LoginResponse>(loginResponse);
 
       if (!loginResponse.ok || !loginData.success || !loginData.user) {
-        setError(
-          loginData.message ||
-            "Invalid credentials. Please try again."
-        );
+        setError(loginData.message || "Invalid credentials. Please try again.");
         return;
       }
 
-      const loggedInUser = loginData.user;
-      const token = String(loginData.token ?? "").trim();
+      const assignedStores = Array.isArray(loginData.stores)
+        ? loginData.stores
+        : [];
+      const selectionToken = String(loginData.selection_token ?? "").trim();
 
-      if (!token) {
-        throw new Error("The POS server did not return an authentication token.");
+      if (!selectionToken) {
+        throw new Error("The POS server did not return a store-selection token.");
       }
 
-      savePosToken(token);
+      if (assignedStores.length === 0) {
+        setError("Your account is not assigned to any active store. Contact your manager.");
+        return;
+      }
 
-      /*
-       * ------------------------------------------------------------
-       * 2. ACCOUNT / STORE AUTHORIZATION
-       * ------------------------------------------------------------
-       *
-       * The backend already verifies:
-       *   - users.status = active
-       *   - users.role = cashier
-       *   - user_stores.user_id = logged-in user
-       *   - user_stores.store_id = selected store
-       *   - stores.status = active
-       *
-       * No second users/list.php request is needed here.
-       */
-
-      /*
-       * ------------------------------------------------------------
-       * 3. BUILD POS USER
-       * ------------------------------------------------------------
-       */
-      const posUser = buildUserForPos(
-        loggedInUser,
-        selectedStoreId
-      );
-
-      console.log("POS login successful:", {
-        userId: posUser.id,
-        cashier: posUser.full_name,
-        role: posUser.role,
-        storeId: selectedStoreId,
-      });
-
-      /*
-       * No mock password, mock users, or artificial delay.
-       * The real PHP authentication is the source of truth.
-       */
-      onSuccess(posUser, token);
+      onSuccess(loginData.user, assignedStores, selectionToken);
     } catch (err) {
       console.error("POS login error:", err);
-
       setError(
         err instanceof Error
           ? err.message
@@ -289,10 +156,6 @@ export default function LoginScreen({
       setLoading(false);
     }
   };
-
-  const storeName = getStoreName(store);
-  const branchName = getBranchName(store);
-  const terminal = getTerminal(store);
 
   return (
     <div className="relative min-h-[100dvh] w-full overflow-x-hidden overflow-y-auto bg-slate-950 px-4 py-4 sm:px-6 sm:py-6 flex items-start justify-center sm:items-center">
@@ -304,30 +167,6 @@ export default function LoginScreen({
       </div>
 
       <div className="relative z-10 w-full max-w-[430px]">
-        {/* Back */}
-        <button
-          type="button"
-          onClick={onBack}
-          disabled={loading}
-          className="mb-5 flex items-center gap-2 text-sm font-medium text-slate-400 transition hover:text-white disabled:opacity-50"
-        >
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-700 bg-slate-900/70">
-            <svg
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="m15 18-6-6 6-6" />
-            </svg>
-          </span>
-          Back to store selection
-        </button>
-
         {/* Main login card */}
         <div className="overflow-hidden rounded-3xl border border-white/10 bg-white shadow-2xl shadow-black/30">
           {/* Brand header */}
@@ -350,35 +189,6 @@ export default function LoginScreen({
               Point of Sale System
             </p>
 
-            {/* Store information */}
-            <div className="mx-auto mt-5 flex max-w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-left">
-              <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-indigo-500/15 text-indigo-300">
-                <svg
-                  width="15"
-                  height="15"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M3 9l1.5-6h15L21 9" />
-                  <path d="M3 9h18" />
-                  <path d="M3 9v11a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V9" />
-                  <rect x="9" y="13" width="6" height="8" rx="1" />
-                </svg>
-              </div>
-
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-semibold text-white">
-                  {storeName}
-                </p>
-                <p className="truncate text-[10px] text-slate-400">
-                  {branchName} · {terminal}
-                </p>
-              </div>
-            </div>
           </div>
 
           {/* Form */}
@@ -595,20 +405,8 @@ export default function LoginScreen({
           </div>
         </div>
 
-        {/* Footer */}
         <div className="mt-5 text-center">
-          <button
-            type="button"
-            onClick={onBack}
-            disabled={loading}
-            className="text-xs font-medium text-slate-500 transition hover:text-white disabled:opacity-50"
-          >
-            Switch Store
-          </button>
-
-          <p className="mt-3 text-[10px] text-slate-600">
-            Rhea POS v2.4 · {terminal}
-          </p>
+          <p className="text-[10px] text-slate-500">Secure POS terminal</p>
         </div>
       </div>
     </div>

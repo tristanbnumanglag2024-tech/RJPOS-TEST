@@ -11,15 +11,19 @@ import type {
   POSSession,
 } from "@/types/pos";
 import { generateTxnId } from "@/data/mockData";
-import { clearPosToken, getPosToken, posAuthHeaders, savePosToken } from "@/types/posToken";
+import {
+  clearPosToken,
+  getPosToken,
+  posAuthHeaders,
+  savePosToken,
+} from "@/types/posToken";
+import LoginScreen, { type ApiLoginUser } from "@/screens/LoginScreen";
 import StoreSelectScreen from "@/screens/StoreSelectScreen";
-import LoginScreen from "@/screens/LoginScreen";
 import LockScreen from "@/screens/LockScreen";
 import POSScreen from "@/screens/POSScreen";
 
 const API_BASE = "https://sakuracareapi.site/rhea-pos-api";
-
-const INACTIVITY_MS = 30 * 60 * 1000; // 30 minutes
+const INACTIVITY_MS = 30 * 60 * 1000;
 
 type SessionResponse = {
   success: boolean;
@@ -27,6 +31,10 @@ type SessionResponse = {
   authenticated?: boolean;
   user?: User;
   store?: Store;
+};
+
+type StoreSelectionResponse = SessionResponse & {
+  token?: string;
 };
 
 async function readJson<T>(response: Response): Promise<T> {
@@ -52,7 +60,9 @@ function isValidSessionUser(user: User | undefined): user is User {
   return (
     String(user.id ?? "").trim() !== "" &&
     String(user.store_id ?? "").trim() !== "" &&
-    String(user.role ?? "").toLowerCase() === "cashier" &&
+    ["cashier", "admin"].includes(
+      String(user.role ?? "").trim().toLowerCase()
+    ) &&
     user.active === true &&
     user.pos_access === true
   );
@@ -68,33 +78,51 @@ function isValidSessionStore(store: Store | undefined): store is Store {
   );
 }
 
+function createPosSession(user: User, store: Store): POSSession {
+  return {
+    user,
+    store,
+    cart: [],
+    customer: null,
+    discount: null,
+    view: "cart",
+    heldOrders: [],
+    txnId: generateTxnId(),
+  };
+}
+
 export default function App() {
-  const [screen, setScreen] =
-    useState<AppScreen>("store-select");
+  // Login MUST happen before store selection.
+  const [screen, setScreen] = useState<AppScreen>("login");
 
-  const [store, setStore] =
-    useState<Store | null>(null);
+  const [store, setStore] = useState<Store | null>(null);
+  const [session, setSession] = useState<POSSession | null>(null);
 
-  const [session, setSession] =
-    useState<POSSession | null>(null);
+  const [checkingSession, setCheckingSession] = useState(true);
 
-  const [checkingSession, setCheckingSession] =
-    useState(true);
+  // Stores available to the authenticated POS user.
+  // Cashiers receive assigned stores; admins may receive all active stores.
+  const [assignedStores, setAssignedStores] = useState<Store[]>([]);
 
-  const timer =
-    useRef<ReturnType<typeof setTimeout> | null>(null);
+  // User returned after credentials are verified, before a branch is selected.
+  const [pendingUser, setPendingUser] = useState<ApiLoginUser | null>(null);
+
+  // Temporary token stored in memory only while the user chooses a store.
+  const [selectionToken, setSelectionToken] = useState("");
+
+  const [loadingStoreSelection, setLoadingStoreSelection] = useState(false);
+
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /*
   |--------------------------------------------------------------------------
-  | RESTORE REAL PHP SESSION ON PAGE REFRESH
+  | RESTORE FINAL POS SESSION
   |--------------------------------------------------------------------------
   |
-  | NO localStorage/sessionStorage is used.
-  |
-  | The PHP session created by /auth/pos-login.php is the source of truth.
+  | Only a FINAL POS token is accepted here.
+  | A pending store-selection token is never saved as the final token.
   |--------------------------------------------------------------------------
   */
-
   useEffect(() => {
     let mounted = true;
 
@@ -108,7 +136,10 @@ export default function App() {
           if (mounted) {
             setSession(null);
             setStore(null);
-            setScreen("store-select");
+            setAssignedStores([]);
+            setPendingUser(null);
+            setSelectionToken("");
+            setScreen("login");
           }
           return;
         }
@@ -122,8 +153,7 @@ export default function App() {
           }
         );
 
-        const data =
-          await readJson<SessionResponse>(response);
+        const data = await readJson<SessionResponse>(response);
 
         if (
           !response.ok ||
@@ -137,7 +167,10 @@ export default function App() {
           if (mounted) {
             setSession(null);
             setStore(null);
-            setScreen("store-select");
+            setAssignedStores([]);
+            setPendingUser(null);
+            setSelectionToken("");
+            setScreen("login");
           }
 
           return;
@@ -146,11 +179,7 @@ export default function App() {
         const restoredUser = data.user;
         const restoredStore = data.store;
 
-        /*
-         * Extra safety:
-         * The PHP session must belong to the same store assigned to
-         * the authenticated cashier.
-         */
+        // Final POS token must resolve to the same store as the authenticated user.
         if (
           Number(restoredUser.store_id) !==
           Number(restoredStore.id)
@@ -163,18 +192,12 @@ export default function App() {
         if (!mounted) return;
 
         setStore(restoredStore);
-
-        setSession({
-          user: restoredUser,
-          store: restoredStore,
-          cart: [],
-          customer: null,
-          discount: null,
-          view: "cart",
-          heldOrders: [],
-          txnId: generateTxnId(),
-        });
-
+        setSession(
+          createPosSession(
+            restoredUser,
+            restoredStore
+          )
+        );
         setScreen("pos");
       } catch (err) {
         console.error(
@@ -182,14 +205,15 @@ export default function App() {
           err
         );
 
-        /*
-         * A failed session check means we cannot safely restore POS.
-         * Do not keep stale client-side authentication.
-         */
+        clearPosToken();
+
         if (mounted) {
           setSession(null);
           setStore(null);
-          setScreen("store-select");
+          setAssignedStores([]);
+          setPendingUser(null);
+          setSelectionToken("");
+          setScreen("login");
         }
       } finally {
         if (mounted) {
@@ -275,41 +299,130 @@ export default function App() {
     clearTimer,
   ]);
 
-  const handleStoreSelect = (selectedStore: Store) => {
-    setStore(selectedStore);
-    setSession(null);
-    setScreen("login");
-  };
-
-  const handleLoginSuccess = (user: User, token: string) => {
-    if (!store) {
+  /*
+  |--------------------------------------------------------------------------
+  | LOGIN SUCCESS
+  |--------------------------------------------------------------------------
+  |
+  | This does NOT enter POS yet.
+  |
+  | The login endpoint has already authenticated users.email/username/password.
+  | Cashiers receive assigned stores; admins may receive all active stores.
+  |--------------------------------------------------------------------------
+  */
+  const handleLoginSuccess = (
+    user: ApiLoginUser,
+    stores: Store[],
+    temporarySelectionToken: string
+  ) => {
+    if (!stores.length || !temporarySelectionToken) {
       return;
     }
 
-    savePosToken(token);
+    setPendingUser(user);
+    setAssignedStores(stores);
+    setSelectionToken(
+      temporarySelectionToken
+    );
+    setStore(null);
+    setSession(null);
+    setScreen("store-select");
+  };
 
-    /*
-     * The backend has already authenticated the user and verified
-     * the selected store. Build the in-memory POS session only.
-     */
-    const nextSession: POSSession = {
-      user,
-      store,
-      cart: [],
-      customer: null,
-      discount: null,
-      view: "cart",
-      heldOrders: [],
-      txnId: generateTxnId(),
-    };
+  /*
+  |--------------------------------------------------------------------------
+  | ASSIGNED STORE SELECTION
+  |--------------------------------------------------------------------------
+  |
+  | The selection token proves which authenticated user is making the
+  | selection. The backend verifies the selected active store according to
+  | the user's role and converts the same pos_sessions row into a final
+  | store-bound POS session.
+  |--------------------------------------------------------------------------
+  */
+  const handleStoreSelect = async (
+    selectedStore: Store,
+    pin: string
+  ): Promise<{ success: boolean; message?: string }> => {
+    if (!pendingUser || !selectionToken) {
+      return {
+        success: false,
+        message: "Your login selection session has expired. Please sign in again.",
+      };
+    }
 
-    setSession(nextSession);
-    setScreen("pos");
+    const cleanPin = pin.trim();
+    if (!cleanPin) {
+      return {
+        success: false,
+        message: "Please enter your POS PIN.",
+      };
+    }
+
+    setLoadingStoreSelection(true);
+
+    try {
+      const response = await fetch(`${API_BASE}/auth/pos-login.php`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          selection_token: selectionToken,
+          store_id: Number(selectedStore.id),
+          pin: cleanPin,
+        }),
+      });
+
+      const data = await readJson<StoreSelectionResponse>(response);
+
+      if (
+        !response.ok ||
+        !data.success ||
+        !data.user ||
+        !data.store ||
+        !data.token
+      ) {
+        return {
+          success: false,
+          message: data.message || "Unable to open the selected store.",
+        };
+      }
+
+      savePosToken(data.token);
+      setStore(data.store);
+      setSession(createPosSession(data.user, data.store));
+      setPendingUser(null);
+      setAssignedStores([]);
+      setSelectionToken("");
+      setScreen("pos");
+
+      return { success: true };
+    } catch (err) {
+      console.error("POS store selection error:", err);
+      return {
+        success: false,
+        message:
+          err instanceof Error
+            ? err.message
+            : "Unable to verify the POS PIN.",
+      };
+    } finally {
+      setLoadingStoreSelection(false);
+    }
+  };
+
+  const handleBackToLogin = () => {
+    setAssignedStores([]);
+    setPendingUser(null);
+    setSelectionToken("");
+    setScreen("login");
   };
 
   const handleUnlock = () => {
     if (!session) {
-      setScreen("store-select");
+      setScreen("login");
       return;
     }
 
@@ -345,21 +458,14 @@ export default function App() {
     } finally {
       clearPosToken();
 
-      /*
-       * Always clear local React state even if the server request
-       * fails, so the POS screen cannot remain open.
-       */
       setSession(null);
       setStore(null);
-      setScreen("store-select");
+      setAssignedStores([]);
+      setPendingUser(null);
+      setSelectionToken("");
+      setScreen("login");
     }
   };
-
-  /*
-  |--------------------------------------------------------------------------
-  | INITIAL SESSION CHECK UI
-  |--------------------------------------------------------------------------
-  */
 
   if (checkingSession) {
     return (
@@ -379,39 +485,30 @@ export default function App() {
     );
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | SCREEN ROUTING
-  |--------------------------------------------------------------------------
-  */
-
-  if (screen === "store-select") {
-    return (
-      <StoreSelectScreen
-        onSelect={handleStoreSelect}
-      />
-    );
-  }
-
-  if (
-    screen === "login" &&
-    store
-  ) {
+  if (screen === "login") {
     return (
       <LoginScreen
-        store={store}
         onSuccess={handleLoginSuccess}
-        onBack={() =>
-          setScreen("store-select")
-        }
       />
     );
   }
 
   if (
-    screen === "lock" &&
-    session
+    screen === "store-select" &&
+    pendingUser &&
+    selectionToken
   ) {
+    return (
+      <StoreSelectScreen
+        stores={assignedStores}
+        loading={loadingStoreSelection}
+        onSelect={handleStoreSelect}
+        onBack={handleBackToLogin}
+      />
+    );
+  }
+
+  if (screen === "lock" && session) {
     return (
       <LockScreen
         session={session}
@@ -420,10 +517,7 @@ export default function App() {
     );
   }
 
-  if (
-    screen === "pos" &&
-    session
-  ) {
+  if (screen === "pos" && session) {
     return (
       <POSScreen
         session={session}
@@ -433,12 +527,9 @@ export default function App() {
     );
   }
 
-  /*
-   * Safe fallback if React state becomes inconsistent.
-   */
   return (
-    <StoreSelectScreen
-      onSelect={handleStoreSelect}
+    <LoginScreen
+      onSuccess={handleLoginSuccess}
     />
   );
 }

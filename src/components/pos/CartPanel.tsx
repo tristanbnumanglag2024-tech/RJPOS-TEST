@@ -1,5 +1,6 @@
 import type { CartItem, Customer, Discount } from "@/types/pos";
 import { CATEGORY_PALETTE } from "@/data/mockData";
+import { useRef } from "react";
 
 interface Props {
   txnId: string;
@@ -49,10 +50,50 @@ export default function CartPanel({
     ? afterDiscount
     : afterDiscount + tax;
 
+  // Mobile-only swipe-down gesture for the cart drawer.
+  const touchStartY = useRef<number | null>(null);
+  const touchStartX = useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!onClose || window.innerWidth >= 768) return;
+    const touch = e.touches[0];
+    touchStartY.current = touch.clientY;
+    touchStartX.current = touch.clientX;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!onClose || window.innerWidth >= 768) return;
+
+    const startY = touchStartY.current;
+    const startX = touchStartX.current;
+    touchStartY.current = null;
+    touchStartX.current = null;
+
+    if (startY === null || startX === null) return;
+
+    const deltaY = e.changedTouches[0].clientY - startY;
+    const deltaX = e.changedTouches[0].clientX - startX;
+
+    if (deltaY >= 70 && Math.abs(deltaY) > Math.abs(deltaX) * 1.2) {
+      onClose();
+    }
+  };
+
   return (
-    <div className="flex flex-col bg-white h-full">
+    <div
+      className="flex flex-col bg-white h-full"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Mobile swipe handle */}
+      {onClose && (
+        <div className="md:hidden flex justify-center pt-2 pb-1 flex-shrink-0">
+          <div className="w-10 h-1 rounded-full bg-slate-200" />
+        </div>
+      )}
+
       {/* Header */}
-      <div className="px-4 pt-3.5 pb-2 border-b border-slate-100 flex-shrink-0">
+      <div className="px-3.5 sm:px-4 pt-2.5 sm:pt-3.5 pb-2 border-b border-slate-100 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {/* Mobile back/close button */}
@@ -75,7 +116,7 @@ export default function CartPanel({
       </div>
 
       {/* Cart items */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
         {cart.length === 0 ? (
           <div className="h-40 flex flex-col items-center justify-center gap-2 text-slate-300 px-4">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>

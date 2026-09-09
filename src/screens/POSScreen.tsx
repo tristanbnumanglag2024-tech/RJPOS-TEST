@@ -9,13 +9,16 @@
     Product,
   } from "@/types/pos";
   import { generateTxnId } from "@/data/mockData";
-  import { clearPosToken, getPosToken, posAuthHeaders } from "@/types/posToken";
+  import { posAuthHeaders } from "@/types/posToken";
   import POSHeader from "@/components/pos/POSHeader";
   import ProductGrid from "@/components/pos/ProductGrid";
   import CartPanel from "@/components/pos/CartPanel";
   import CustomerModal from "@/components/pos/CustomerModal";
   import DiscountModal from "@/components/pos/DiscountModal";
   import HoldModal from "@/components/pos/HoldModal";
+import PaymentView, { type PaymentPart } from "@/components/pos/PaymentView";
+import TransactionHistoryModal from "@/components/pos/TransactionHistoryModal";
+import RefundApprovalModal from "@/components/pos/RefundApprovalModal";
 
   const API_BASE =
     "https://sakuracareapi.site/rhea-pos-api";
@@ -195,383 +198,6 @@
       points: Number(customer.points || 0),
     };
   }
-
-  function PaymentView({
-    cart,
-    customer,
-    discount,
-    taxConfig,
-    paymentMethods,
-    onBack,
-    onComplete,
-  }: {
-    cart: CartItem[];
-    customer: Customer | null;
-    discount: Discount | null;
-    taxConfig: TaxConfig;
-    paymentMethods: PaymentMethod[];
-    onBack: () => void;
-    onComplete: (
-      paid: number,
-      method: string
-    ) => Promise<void>;
-  }) {
-    const { discountAmt, tax, total } =
-      calcTotals(
-        cart,
-        discount,
-        taxConfig
-      );
-
-    const [method, setMethod] =
-      useState<string>(paymentMethods[0]?.code ?? "");
-    const [cashInput, setCashInput] =
-      useState("");
-    const [processing, setProcessing] =
-      useState(false);
-
-    useEffect(() => {
-      if (paymentMethods.length === 0) {
-        setMethod("");
-        return;
-      }
-
-      if (
-        !paymentMethods.some(
-          (paymentMethod) =>
-            paymentMethod.code === method
-        )
-      ) {
-        setMethod(paymentMethods[0].code);
-      }
-    }, [paymentMethods, method]);
-
-    const selectedPaymentMethod =
-      paymentMethods.find(
-        (paymentMethod) =>
-          paymentMethod.code === method
-      );
-
-    const cashVal =
-      parseFloat(cashInput) || 0;
-
-    const change = cashVal - total;
-
-    const insufficient =
-      method === "cash" &&
-      cashInput !== "" &&
-      cashVal < total;
-
-    const quickAmounts = [
-      total,
-      Math.ceil(total / 100) * 100,
-      Math.ceil(total / 500) * 500,
-      Math.ceil(total / 1000) * 1000,
-    ]
-      .filter((amount, index, values) =>
-        values.indexOf(amount) === index
-      )
-      .slice(0, 4);
-
-    const canProcess =
-      !processing &&
-      cart.length > 0 &&
-      (method !== "cash"
-        ? true
-        : cashInput !== "" &&
-          cashVal >= total);
-
-    const submit = async () => {
-      if (!canProcess) return;
-
-      try {
-        setProcessing(true);
-
-        await onComplete(
-          method === "cash"
-            ? cashVal
-            : total,
-          method
-        );
-      } finally {
-        setProcessing(false);
-      }
-    };
-
-    return (
-      <div className="flex-1 flex items-start sm:items-center justify-center p-4 sm:p-6 bg-slate-50 overflow-y-auto">
-        <div className="w-full max-w-md mt-2 sm:mt-0">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="px-5 sm:px-6 py-4 sm:py-5 border-b border-slate-100 flex items-center justify-between">
-              <div>
-                <h2 className="text-base font-bold text-slate-900">
-                  Payment
-                </h2>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  {customer?.name ??
-                    "Walk-in Customer"}
-                </p>
-              </div>
-
-              <div className="text-right">
-                <p className="text-[10px] text-slate-400 uppercase tracking-wide">
-                  Amount Due
-                </p>
-                <p className="text-2xl font-black text-indigo-600 tabular-nums">
-                  ₱
-                  {total.toLocaleString("en-PH", {
-                    minimumFractionDigits: 2,
-                  })}
-                </p>
-              </div>
-            </div>
-
-            <div className="px-5 sm:px-6 py-4 sm:py-5 space-y-4 sm:space-y-5">
-              <div>
-                <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-2">
-                  Payment Method
-                </p>
-
-                {paymentMethods.length === 0 ? (
-                  <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700">
-                    No payment methods are currently available for this store.
-                  </div>
-                ) : (
-                  <div
-                    className={`grid gap-2 ${
-                      paymentMethods.length === 1
-                        ? "grid-cols-1"
-                        : paymentMethods.length === 2
-                        ? "grid-cols-2"
-                        : paymentMethods.length === 3
-                        ? "grid-cols-3"
-                        : "grid-cols-2 sm:grid-cols-4"
-                    }`}
-                  >
-                    {paymentMethods.map((paymentMethod) => (
-                      <button
-                        type="button"
-                        key={paymentMethod.id}
-                        onClick={() => setMethod(paymentMethod.code)}
-                        disabled={
-                          processing ||
-                          !paymentMethod.is_available ||
-                          paymentMethod.is_coming_soon
-                        }
-                        className={`h-11 rounded-xl text-xs font-semibold border transition ${
-                          method === paymentMethod.code
-                            ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
-                            : "text-slate-600 border-slate-200 hover:border-indigo-200"
-                        } ${
-                          !paymentMethod.is_available ||
-                          paymentMethod.is_coming_soon
-                            ? "opacity-40 cursor-not-allowed"
-                            : ""
-                        }`}
-                        title={
-                          paymentMethod.is_coming_soon
-                            ? "Coming soon"
-                            : paymentMethod.description ??
-                              paymentMethod.name
-                        }
-                      >
-                        {paymentMethod.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {method === "cash" ? (
-                <div>
-                  <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-2">
-                    Cash Received
-                  </p>
-
-                  <input
-                    type="number"
-                    min="0"
-                    value={cashInput}
-                    onChange={(event) =>
-                      setCashInput(
-                        event.target.value
-                      )
-                    }
-                    disabled={processing}
-                    placeholder={`₱${total.toFixed(
-                      2
-                    )}`}
-                    className={`w-full h-12 px-4 rounded-xl border text-slate-900 text-base font-bold focus:outline-none focus:ring-2 transition ${
-                      insufficient
-                        ? "border-red-300 bg-red-50 focus:ring-red-400"
-                        : "border-slate-200 bg-slate-50 focus:ring-indigo-500"
-                    }`}
-                  />
-
-                  <div className="flex gap-2 mt-2">
-                    {quickAmounts.map(
-                      (amount) => (
-                        <button
-                          type="button"
-                          key={amount}
-                          disabled={processing}
-                          onClick={() =>
-                            setCashInput(
-                              amount.toFixed(
-                                2
-                              )
-                            )
-                          }
-                          className="flex-1 text-xs font-medium bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 rounded-lg py-2 transition"
-                        >
-                          ₱
-                          {amount.toLocaleString()}
-                        </button>
-                      )
-                    )}
-                  </div>
-
-                  {cashInput &&
-                    !insufficient && (
-                      <div className="flex justify-between mt-3 bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-2.5">
-                        <span className="text-sm text-emerald-700">
-                          Change
-                        </span>
-                        <span className="text-base font-bold text-emerald-700 tabular-nums">
-                          ₱
-                          {change.toLocaleString(
-                            "en-PH",
-                            {
-                              minimumFractionDigits: 2,
-                            }
-                          )}
-                        </span>
-                      </div>
-                    )}
-
-                  {insufficient && (
-                    <p className="text-xs text-red-500 mt-2">
-                      Insufficient — ₱
-                      {(
-                        total - cashVal
-                      ).toFixed(2)}{" "}
-                      short.
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <div className="bg-slate-50 border border-slate-200 border-dashed rounded-xl p-6 text-center">
-                  <p className="text-3xl mb-1">
-                    {method === "card"
-                      ? "💳"
-                      : method ===
-                        "gcash"
-                      ? "📱"
-                      : "📲"}
-                  </p>
-
-                  <p className="text-sm font-medium text-slate-600">
-                    {method ===
-                    "card"
-                      ? "Confirm card payment"
-                      : method ===
-                        "gcash"
-                      ? "Confirm GCash payment"
-                      : "Confirm QR payment"}
-                  </p>
-
-                  <p className="text-xs text-slate-400 mt-1">
-                    Amount: ₱
-                    {total.toLocaleString(
-                      "en-PH",
-                      {
-                        minimumFractionDigits: 2,
-                      }
-                    )}
-                  </p>
-                </div>
-              )}
-
-              <div className="bg-slate-50 rounded-xl p-4 space-y-1.5">
-                {cart.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex justify-between text-xs text-slate-600"
-                  >
-                    <span>
-                      {item.name} ×
-                      {item.qty}
-                    </span>
-
-                    <span className="font-medium">
-                      ₱
-                      {(
-                        item.price *
-                        item.qty
-                      ).toLocaleString(
-                        "en-PH",
-                        {
-                          minimumFractionDigits: 2,
-                        }
-                      )}
-                    </span>
-                  </div>
-                ))}
-
-                {discountAmt > 0 && (
-                  <div className="flex justify-between text-xs text-emerald-600 font-medium">
-                    <span>
-                      Discount
-                    </span>
-                    <span>
-                      - ₱
-                      {discountAmt.toFixed(
-                        2
-                      )}
-                    </span>
-                  </div>
-                )}
-
-                <div className="flex justify-between text-xs text-slate-400 pt-1.5 border-t border-slate-200">
-                  <span>
-                    {getTaxLabel(
-                      taxConfig
-                    )}
-                  </span>
-                  <span>
-                    ₱{tax.toFixed(2)}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="px-5 sm:px-6 pb-5 sm:pb-6 flex gap-3">
-              <button
-                type="button"
-                onClick={onBack}
-                disabled={processing}
-                className="flex-1 h-12 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 transition font-medium"
-              >
-                ← Back
-              </button>
-
-              <button
-                type="button"
-                onClick={submit}
-                disabled={!canProcess}
-                className="flex-[2] h-12 rounded-xl bg-indigo-700 hover:bg-indigo-800 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-bold transition shadow-sm shadow-indigo-200"
-              >
-                {processing
-                  ? "Processing…"
-                  : "Process Payment"}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   function ReceiptView({
     session,
     cart,
@@ -732,7 +358,9 @@
 
               <div className="flex justify-between text-sm text-slate-500">
                 <span className="capitalize">
-                  {method === "gcash"
+                  {method === "split"
+                    ? "Split Payment"
+                    : method === "gcash"
                     ? "GCash"
                     : method === "qr"
                     ? "QR Code"
@@ -959,6 +587,12 @@
     const [showHold, setShowHold] =
       useState(false);
 
+    const [showTransactions, setShowTransactions] =
+      useState(false);
+
+    const [showRefundApprovals, setShowRefundApprovals] =
+      useState(false);
+
     const [actionError, setActionError] =
       useState("");
 
@@ -1001,9 +635,7 @@
           }
 
           const response = await fetch(
-            `${API_BASE}/pos/pos-data.php?store_id=${encodeURIComponent(
-              String(storeId)
-            )}`,
+            `${API_BASE}/pos/pos-data.php`,
             {
               method: "GET",
               headers: posAuthHeaders(),
@@ -1115,6 +747,77 @@
         mounted = false;
       };
     }, [session.store.id]);
+
+    useEffect(() => {
+      let mounted = true;
+
+      const loadHolds = async () => {
+        try {
+          const response = await fetch(`${API_BASE}/pos/holds.php`, {
+            headers: posAuthHeaders(),
+            cache: "no-store",
+          });
+          const data = await readJson<{
+            success: boolean;
+            message?: string;
+            holds?: Array<{
+              id: number;
+              hold_no: string;
+              customer_id?: number | null;
+              customer_name?: string;
+              subtotal: number;
+              discount?: Discount | null;
+              notes?: string | null;
+              held_at: string;
+              items: Array<{
+                id: number;
+                name: string;
+                sku: string;
+                price: number;
+                qty: number;
+              }>;
+            }>;
+          }>(response);
+
+          if (!response.ok || !data.success) {
+            throw new Error(data.message || "Unable to load held orders.");
+          }
+
+          if (!mounted) return;
+
+          const mapped: HeldOrder[] = (data.holds ?? []).map((hold) => ({
+            id: String(hold.id),
+            label: hold.hold_no,
+            cart: hold.items.map((item) => ({
+              id: String(item.id),
+              name: item.name,
+              sku: item.sku,
+              price: Number(item.price),
+              category: "Uncategorized",
+              stock: 999999,
+              qty: Number(item.qty),
+            })),
+            customer:
+              hold.customer_id !== null && hold.customer_id !== undefined
+                ? customers.find((c) => Number(c.id) === Number(hold.customer_id)) ?? null
+                : null,
+            discount: hold.discount ?? null,
+            subtotal: Number(hold.subtotal || 0),
+            heldAt: new Date(hold.held_at),
+          }));
+
+          setHeldOrders(mapped);
+        } catch (error) {
+          console.warn("Load POS holds failed:", error);
+        }
+      };
+
+      loadHolds();
+
+      return () => {
+        mounted = false;
+      };
+    }, [session.store.id, customers.length]);
 
     useEffect(() => {
       if (
@@ -1282,15 +985,43 @@
       setCustomer(null);
     };
 
-    const holdOrder = () => {
-      if (cart.length === 0)
-        return;
+
+    const createHold = async (notes: string) => {
+      if (cart.length === 0) {
+        throw new Error("Cart is empty.");
+      }
+
+      const response = await fetch(`${API_BASE}/pos/holds.php`, {
+        method: "POST",
+        headers: posAuthHeaders(true),
+        body: JSON.stringify({
+          action: "create",
+          items: cart.map((item) => ({
+            product_id: Number(item.id),
+            quantity: Number(item.qty),
+            unit_price: Number(item.price),
+          })),
+          customer_id: customer?.id ? Number(customer.id) : null,
+          discount,
+          subtotal,
+          notes,
+        }),
+      });
+
+      const data = await readJson<{
+        success: boolean;
+        message?: string;
+        hold_id?: number;
+        hold_no?: string;
+      }>(response);
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Unable to hold order.");
+      }
 
       const held: HeldOrder = {
-        id: `hold-${Date.now()}`,
-        label: `Hold #${
-          heldOrders.length + 1
-        }`,
+        id: String(data.hold_id),
+        label: String(data.hold_no ?? data.hold_id),
         cart: [...cart],
         customer,
         discount,
@@ -1298,58 +1029,125 @@
         heldAt: new Date(),
       };
 
-      setHeldOrders((previous) => [
-        ...previous,
-        held,
-      ]);
-
+      setHeldOrders((previous) => [held, ...previous]);
       setCart([]);
       setCustomer(null);
       setDiscount(null);
-      setTxnId(
-        generateTxnId()
-      );
+      setTxnId(generateTxnId());
       setShowHold(false);
       setShowMobileCart(false);
     };
 
-    const resumeOrder = (
-      order: HeldOrder
-    ) => {
-      setCart(order.cart);
-      setCustomer(
-        order.customer
-      );
-      setDiscount(
-        order.discount
-      );
+    const resumeOrder = async (order: HeldOrder) => {
+      let resumed = order;
 
-      setHeldOrders(
-        (previous) =>
-          previous.filter(
-            (held) =>
-              held.id !==
-              order.id
-          )
-      );
+      if (Number(order.id) > 0) {
+        const response = await fetch(
+          `${API_BASE}/pos/holds.php`,
+          {
+            method: "POST",
+            headers: posAuthHeaders(true),
+            body: JSON.stringify({
+              action: "resume",
+              hold_id: Number(order.id),
+            }),
+          }
+        );
 
-      setTxnId(
-        generateTxnId()
-      );
+        const data = await readJson<{
+          success: boolean;
+          message?: string;
+          hold?: {
+            id: number;
+            customer_id?: number | null;
+            subtotal: number;
+            discount?: Discount | null;
+            notes?: string | null;
+            held_at: string;
+            items: Array<{
+              product_id: number;
+              quantity: number;
+              unit_price: number;
+            }>;
+          };
+        }>(response);
 
+        if (!response.ok || !data.success || !data.hold) {
+          throw new Error(data.message || "Unable to resume held order.");
+        }
+
+        const holdCustomer =
+          data.hold.customer_id !== null &&
+          data.hold.customer_id !== undefined
+            ? customers.find(
+                (item) => Number(item.id) === Number(data.hold?.customer_id)
+              ) ?? null
+            : null;
+
+        resumed = {
+          ...order,
+          cart: data.hold.items.map((item) => {
+            const product = products.find(
+              (p) => Number(p.id) === Number(item.product_id)
+            );
+            return {
+              ...(product ?? {
+                id: String(item.product_id),
+                name: `Product #${item.product_id}`,
+                sku: "",
+                category: "Uncategorized",
+                stock: 999999,
+                price: Number(item.unit_price),
+              }),
+              price: Number(item.unit_price),
+              qty: Number(item.quantity),
+            };
+          }),
+          customer: holdCustomer,
+          discount: data.hold.discount ?? null,
+          subtotal: Number(data.hold.subtotal || 0),
+          heldAt: new Date(data.hold.held_at),
+        };
+      }
+
+      setCart(resumed.cart);
+      setCustomer(resumed.customer);
+      setDiscount(resumed.discount);
+      setHeldOrders((previous) =>
+        previous.filter((held) => held.id !== resumed.id)
+      );
+      setTxnId(generateTxnId());
       setReceiptNo("");
       setView("cart");
     };
 
-    const deleteHeld = (
-      id: string
-    ) => {
-      setHeldOrders(
-        (previous) =>
-          previous.filter(
-            (held) =>
-              held.id !== id
-          )
+    const deleteHeld = async (id: string) => {
+      const order = heldOrders.find((held) => held.id === id);
+
+      if (!order) {
+        return;
+      }
+
+      if (Number(order.id) > 0) {
+        const response = await fetch(
+          `${API_BASE}/pos/holds.php?id=${encodeURIComponent(String(order.id))}`,
+          {
+            method: "DELETE",
+            headers: posAuthHeaders(),
+          }
+        );
+
+        const data = await readJson<{ success: boolean; message?: string }>(
+          response
+        );
+
+        if (!response.ok || !data.success) {
+          throw new Error(data.message || "Unable to delete held order.");
+        }
+      }
+
+      setHeldOrders((previous) =>
+        previous.filter((held) => held.id !== id)
       );
     };
 
@@ -1369,114 +1167,103 @@
       setView("cart");
     };
 
+
     const completeSale = async (
-      paidAmount: number,
-      paymentMethod: string
+      payments: PaymentPart[]
     ) => {
       setActionError("");
 
       if (cart.length === 0) {
-        setActionError(
-          "Cart is empty."
-        );
+        setActionError("Cart is empty.");
         return;
       }
 
-      const payload = {
-        store_id: Number(
-          session.store.id
-        ),
-        customer_id:
-          customer?.id
-            ? Number(customer.id)
-            : null,
-        items: cart.map(
-          (item) => ({
-            product_id:
-              Number(item.id),
-            quantity:
-              Number(item.qty),
-          })
-        ),
-        discount_code:
-          discount?.code
-            ? String(discount.code).trim()
-            : null,
-        payment: {
-          method: paymentMethod,
-          amount:
-            Number(paidAmount),
-        },
-        notes: null,
-      };
+      const normalizedPayments = payments
+        .map((item) => ({
+          method: String(item.method).trim().toLowerCase(),
+          amount: Number(item.amount) || 0,
+        }))
+        .filter((item) => item.method && item.amount >= 0);
+
+      const totalPaid = normalizedPayments.reduce(
+        (sum, item) => sum + item.amount,
+        0
+      );
+
+      const totals = calcTotals(cart, discount, taxConfig);
+
+      if (normalizedPayments.length === 0) {
+        throw new Error("Select a payment method.");
+      }
+
+      if (totalPaid + 0.01 < totals.total) {
+        throw new Error(
+          `Insufficient payment. Amount due: ₱${totals.total.toFixed(2)}.`
+        );
+      }
+
+      if (
+        normalizedPayments.length > 1 &&
+        Math.abs(totalPaid - totals.total) > 0.01
+      ) {
+        throw new Error(
+          `Split payments must total exactly ₱${totals.total.toFixed(2)}.`
+        );
+      }
 
       const response = await fetch(
         `${API_BASE}/pos/complete-sale.php`,
         {
           method: "POST",
           headers: posAuthHeaders(true),
-          body: JSON.stringify(
-            payload
-          ),
+          body: JSON.stringify({
+            customer_id: customer?.id ? Number(customer.id) : null,
+            items: cart.map((item) => ({
+              product_id: Number(item.id),
+              quantity: Number(item.qty),
+            })),
+            discount_code: discount?.code
+              ? String(discount.code).trim()
+              : null,
+            payments: normalizedPayments,
+            notes: null,
+          }),
         }
       );
 
       const data =
-        await readJson<CompleteSaleResponse>(
-          response
-        );
+        await readJson<CompleteSaleResponse>(response);
 
-      if (
-        !response.ok ||
-        !data.success
-      ) {
+      if (!response.ok || !data.success) {
         throw new Error(
-          data.message ||
-            "The sale could not be completed."
+          data.message || "The sale could not be completed."
         );
       }
 
-      setPaid(
-        Number(paidAmount)
-      );
+      setPaid(totalPaid);
       setMethod(
-        paymentMethod
+        normalizedPayments.length > 1
+          ? "split"
+          : normalizedPayments[0].method
       );
 
-      setReceiptNo(
-        String(
-          data.receipt_no ?? ""
-        )
-      );
+      setReceiptNo(String(data.receipt_no ?? ""));
 
-      /*
-      * Refresh current stock immediately after
-      * the sale so a second transaction cannot use
-      * stale quantities in the UI.
-      */
       try {
-        const dataResponse =
-          await fetch(
-            `${API_BASE}/pos/pos-data.php?store_id=${encodeURIComponent(
-              String(
-                session.store.id
-              )
-            )}`,
-            {
-              headers: posAuthHeaders(),
-              cache: "no-store",
-            }
-          );
+        const dataResponse = await fetch(
+          `${API_BASE}/pos/pos-data.php`,
+          {
+            headers: posAuthHeaders(),
+            cache: "no-store",
+          }
+        );
 
         const refreshed =
           await readJson<PosDataResponse>(
             dataResponse
           );
 
-        if (
-          dataResponse.ok &&
-          refreshed.success
-        ) {
+        if (dataResponse.ok && refreshed.success) {
           setProducts(
             (refreshed.products ?? []).map(
               mapProduct
@@ -1514,8 +1301,8 @@
         setShowCustomer(true),
       onDiscount: () =>
         setShowDiscount(true),
-      // Cart Hold button saves the current cart immediately.
-      onHold: holdOrder,
+      // Open hold modal; the modal saves the cart + notes to the database.
+      onHold: () => setShowHold(true),
       onCheckout: () =>
         setView("payment"),
     };
@@ -1531,6 +1318,12 @@
           }
           onShowCustomer={() =>
             setShowCustomer(true)
+          }
+          onTransactions={() =>
+            setShowTransactions(true)
+          }
+          onRefundApprovals={() =>
+            setShowRefundApprovals(true)
           }
         />
 
@@ -1737,18 +1530,31 @@
             heldOrders={
               heldOrders
             }
-            onResume={
-              resumeOrder
-            }
-            onDelete={
-              deleteHeld
-            }
+            currentCart={cart}
+            currentCustomer={customer}
+            currentDiscount={discount}
+            onCreateHold={createHold}
+            onResume={resumeOrder}
+            onDelete={deleteHeld}
             onClose={() =>
               setShowHold(
                 false
               )
             }
           />
+        )}
+
+        {showTransactions && (
+          <TransactionHistoryModal
+            onClose={() => setShowTransactions(false)}
+          />
+        )}
+
+        {showRefundApprovals && (
+          <RefundApprovalModal
+              currentUser={session.user}
+              onClose={() => setShowRefundApprovals(false)}
+            />
         )}
 
         <style>{`

@@ -7,6 +7,8 @@ interface Props {
   onLogout: () => void;
   onHold: () => void;
   onShowCustomer: () => void;
+  onTransactions: () => void;
+  onRefundApprovals: () => void;
 }
 
 function initials(name: string) {
@@ -40,6 +42,8 @@ export default function POSHeader({
   onLogout,
   onHold,
   onShowCustomer,
+  onTransactions,
+  onRefundApprovals,
 }: Props) {
   const now = useClock();
 
@@ -203,6 +207,26 @@ export default function POSHeader({
               {heldCount}
             </span>
           )}
+        </button>
+
+        {/* Transaction History */}
+        <button
+          type="button"
+          onClick={onTransactions}
+          title="Transaction history"
+          className="hidden md:flex h-8 px-3 rounded-lg border border-slate-600 items-center justify-center gap-1.5 text-xs font-medium text-slate-300 hover:text-white hover:border-slate-400 transition"
+        >
+          History
+        </button>
+
+        {/* Refund Approvals */}
+        <button
+          type="button"
+          onClick={onRefundApprovals}
+          title="Refund approvals"
+          className="hidden md:flex h-8 px-3 rounded-lg border border-amber-500/40 text-amber-300 hover:bg-amber-500/10 items-center justify-center gap-1.5 text-xs font-medium transition"
+        >
+          Refunds
         </button>
 
         {/* Lock */}
@@ -369,6 +393,28 @@ export default function POSHeader({
                       {heldCount}
                     </span>
                   )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    onTransactions();
+                    setMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-slate-700 transition text-left"
+                >
+                  Transaction History
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    onRefundApprovals();
+                    setMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-amber-300 hover:bg-slate-700 transition text-left"
+                >
+                  Refund Approvals
                 </button>
 
                 <div className="border-t border-slate-700" />
