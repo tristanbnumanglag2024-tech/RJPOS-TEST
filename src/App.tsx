@@ -37,6 +37,12 @@ type StoreSelectionResponse = SessionResponse & {
   token?: string;
 };
 
+type LockStateResponse = {
+  success: boolean;
+  message?: string;
+  locked?: boolean;
+};
+
 async function readJson<T>(response: Response): Promise<T> {
   const text = await response.text();
 
@@ -198,7 +204,44 @@ export default function App() {
             restoredStore
           )
         );
-        setScreen("pos");
+
+        /*
+         * Restore the terminal lock state from the backend.
+         * This prevents a browser refresh from bypassing the POS lock.
+         */
+        try {
+          const lockResponse = await fetch(
+            `${API_BASE}/auth/pos-lock.php`,
+            {
+              method: "GET",
+              headers: posAuthHeaders(),
+              cache: "no-store",
+            }
+          );
+
+          const lockData =
+            await readJson<LockStateResponse>(lockResponse);
+
+          if (!lockResponse.ok || !lockData.success) {
+            throw new Error(
+              lockData.message ||
+                "Unable to verify the POS terminal lock state."
+            );
+          }
+
+          setScreen(lockData.locked === true ? "lock" : "pos");
+        } catch (lockErr) {
+          console.error(
+            "Restore POS lock state error:",
+            lockErr
+          );
+
+          /*
+           * Fail closed: if the backend lock state cannot be verified,
+           * never allow the browser refresh to bypass the lock.
+           */
+          setScreen("lock");
+        }
       } catch (err) {
         console.error(
           "Restore POS session error:",
@@ -420,19 +463,94 @@ export default function App() {
     setScreen("login");
   };
 
-  const handleUnlock = () => {
+  const handleUnlock = async () => {
     if (!session) {
       setScreen("login");
       return;
     }
 
-    setScreen("pos");
-    resetTimer();
+    /*
+     * LockScreen has already verified the PIN with the backend.
+     * Confirm the terminal is actually unlocked before entering POS.
+     */
+    try {
+      const response = await fetch(
+        `${API_BASE}/auth/pos-lock.php`,
+        {
+          method: "GET",
+          headers: posAuthHeaders(),
+          cache: "no-store",
+        }
+      );
+
+      const data =
+        await readJson<LockStateResponse>(response);
+
+      if (
+        !response.ok ||
+        !data.success ||
+        data.locked === true
+      ) {
+        setScreen("lock");
+        return;
+      }
+
+      setScreen("pos");
+      resetTimer();
+    } catch (err) {
+      console.error(
+        "Confirm POS unlock state error:",
+        err
+      );
+
+      /*
+       * Fail closed if the backend cannot confirm the unlock.
+       */
+      setScreen("lock");
+    }
   };
 
-  const handleLock = () => {
+  const handleLock = async () => {
     clearTimer();
-    setScreen("lock");
+
+    try {
+      const token = getPosToken();
+
+      if (token) {
+        const response = await fetch(
+          `${API_BASE}/auth/pos-lock.php`,
+          {
+            method: "POST",
+            headers: {
+              ...posAuthHeaders(),
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify({
+              action: "lock",
+            }),
+          }
+        );
+
+        const data =
+          await readJson<LockStateResponse>(response);
+
+        if (!response.ok || !data.success) {
+          console.error(
+            "POS lock request failed:",
+            data.message || "Unable to lock POS."
+          );
+        }
+      }
+    } catch (err) {
+      console.error("POS lock request error:", err);
+    } finally {
+      /*
+       * Always show the lock screen locally as well.
+       * The backend state is persisted so refresh cannot bypass it.
+       */
+      setScreen("lock");
+    }
   };
 
   const handleLogout = async () => {

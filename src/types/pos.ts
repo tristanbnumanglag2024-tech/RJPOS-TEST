@@ -64,11 +64,13 @@ export interface Discount {
 export interface HeldOrder {
   id: string;
   label: string;
+  holdNo?: string;
   cart: CartItem[];
   customer: Customer | null;
   discount: Discount | null;
   subtotal: number;
   heldAt: Date;
+  notes?: string | null;
 }
 
 export interface POSSession {
