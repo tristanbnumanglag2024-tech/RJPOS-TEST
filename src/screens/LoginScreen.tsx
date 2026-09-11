@@ -5,7 +5,7 @@ interface Props {
   onSuccess: (user: ApiLoginUser, stores: Store[], selectionToken: string) => void;
 }
 
-const API_BASE = "https://sakuracareapi.site/rhea-pos-api";
+import { API_BASE } from "@/config/api";
 
 export type ApiLoginUser = {
   id: number | string;

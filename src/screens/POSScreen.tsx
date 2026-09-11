@@ -20,8 +20,7 @@ import PaymentView, { type PaymentPart } from "@/components/pos/PaymentView";
 import TransactionHistoryModal from "@/components/pos/TransactionHistoryModal";
 import RefundApprovalModal from "@/components/pos/RefundApprovalModal";
 
-  const API_BASE =
-    "https://sakuracareapi.site/rhea-pos-api";
+import { API_BASE } from "@/config/api";
 
   interface TaxConfig {
     id: number;

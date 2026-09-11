@@ -22,7 +22,7 @@ import StoreSelectScreen from "@/screens/StoreSelectScreen";
 import LockScreen from "@/screens/LockScreen";
 import POSScreen from "@/screens/POSScreen";
 
-const API_BASE = "https://sakuracareapi.site/rhea-pos-api";
+import { API_BASE } from "@/config/api";
 const INACTIVITY_MS = 30 * 60 * 1000;
 
 type SessionResponse = {
@@ -103,6 +103,9 @@ export default function App() {
 
   const [store, setStore] = useState<Store | null>(null);
   const [session, setSession] = useState<POSSession | null>(null);
+
+  // Silent POS data refresh signal. This never reloads the browser or resets the cart.
+  const [posRefreshSignal, setPosRefreshSignal] = useState(0);
 
   const [checkingSession, setCheckingSession] = useState(true);
 
@@ -271,6 +274,45 @@ export default function App() {
       mounted = false;
     };
   }, []);
+
+  /*
+  |--------------------------------------------------------------------------
+  | SILENT POS DATA REFRESH
+  |--------------------------------------------------------------------------
+  |
+  | Refresh the POS data in the background without refreshing the browser.
+  | POSScreen uses this signal to re-fetch products, customers, payment
+  | methods and tax settings while keeping the current cart and UI state.
+  |
+  | - Every 60 seconds while POS is open
+  | - Immediately when the browser/tab becomes active again
+  | - Does nothing while login, store selection or lock screen is shown
+  |--------------------------------------------------------------------------
+  */
+  useEffect(() => {
+    if (checkingSession || screen !== "pos" || !session) {
+      return;
+    }
+
+    const refresh = () => {
+      setPosRefreshSignal((value) => value + 1);
+    };
+
+    const interval = window.setInterval(refresh, 60_000);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        refresh();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [checkingSession, screen, session]);
 
   const resetTimer = useCallback(() => {
     if (timer.current) {
@@ -641,6 +683,7 @@ export default function App() {
         session={session}
         onLock={handleLock}
         onLogout={handleLogout}
+        refreshSignal={posRefreshSignal}
       />
     );
   }

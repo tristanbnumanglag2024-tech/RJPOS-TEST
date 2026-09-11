@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import Modal from "@/components/pos/Modal";
 import { posAuthHeaders } from "@/types/posToken";
 
-const API_BASE = "https://sakuracareapi.site/rhea-pos-api";
+import { API_BASE } from "@/config/api";
 
 type CurrentUser = {
   id: string;

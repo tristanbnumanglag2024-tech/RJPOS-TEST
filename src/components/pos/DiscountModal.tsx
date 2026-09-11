@@ -3,7 +3,7 @@ import Modal from "./Modal";
 import type { Discount, DiscountType } from "@/types/pos";
 import { posAuthHeaders } from "@/types/posToken";
 
-const API_BASE = "https://sakuracareapi.site/rhea-pos-api";
+import { API_BASE } from "@/config/api";
 
 interface Props {
   current: Discount | null;
